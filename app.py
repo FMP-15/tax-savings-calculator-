@@ -4,8 +4,8 @@ from calculations import load_tax_params, calculate_taxes
 st.set_page_config(page_title="Simulateur d'économie d'impôt 3a", layout="centered")
 st.title("Simulateur d'économie d'impôt (Pilier 3a)")
 
-# Charger les paramètres fiscaux
-params = load_tax_params("data/tax_params.json")
+# Charger les paramètres fiscaux depuis le JSON mis à jour
+params = load_tax_params("data/tax_params_updated.json")
 
 # Saisie des données utilisateur
 npa = st.text_input("Votre NPA (ex : 8001)", value="")
