@@ -1,6 +1,9 @@
 import streamlit as st
 from calculations import calculate_taxes
 
+# Affiche un message de debug pour confirmer le chargement
+st.write("🔍 DEBUG: app.py chargé")
+
 st.set_page_config(page_title="Simulateur d'économie d'impôt 3a", layout="centered")
 st.title("Simulateur d'économie d'impôt (Pilier 3a)")
 
@@ -12,6 +15,7 @@ statut = st.selectbox("Statut civil", ["Célibataire", "Marié"])
 nb_enfants = st.number_input("Nombre d'enfants à charge", min_value=0, value=0, step=1)
 religion = st.selectbox("Religion (taxe d'église)", ["Réformée", "Catholique-romaine", "Catholique-chrétienne"])
 
+# --- Bouton de calcul ---
 if st.button("Calculer"):
     try:
         result = calculate_taxes(
