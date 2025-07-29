@@ -4,16 +4,17 @@ from calculations import load_tax_params, calculate_taxes
 st.set_page_config(page_title="Simulateur d'économie d'impôt 3a", layout="centered")
 st.title("Simulateur d'économie d'impôt (Pilier 3a)")
 
-# Charger les paramètres fiscaux depuis le JSON mis à jour
-params = load_tax_params("data/tax_params_updated.json")
+# --- Chargez le JSON existant dans 'data/tax_params.json' ---
+params = load_tax_params("data/tax_params.json")
 
-# Saisie des données utilisateur
+# --- Inputs utilisateur ---
 npa = st.text_input("Votre NPA (ex : 8001)", value="")
 income = st.number_input("Revenu imposable annuel (CHF)", min_value=0.0, value=80000.0, step=1000.0)
 pillar3a = st.number_input("Montant cotisé au pilier 3a (CHF)", min_value=0.0, value=6800.0, step=100.0)
 subject = st.selectbox("Profil fiscal", list(params["federal"].keys()))
 religion = st.selectbox("Religion (taxe d'église)", params["religions"])
 
+# --- Calcul et affichage ---
 if st.button("Calculer"):
     try:
         result = calculate_taxes(income, pillar3a, npa, subject, religion, params)
