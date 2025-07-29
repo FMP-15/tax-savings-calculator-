@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Environnements virtuels
+.env/
+venv/
+env/
+.venv/
+ENV/
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Streamlit-specific
+/.streamlit/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
