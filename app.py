@@ -4,7 +4,6 @@ from calculations import calculate_taxes
 st.set_page_config(page_title="Simulateur d'économie d'impôt 3a", layout="centered")
 st.title("Simulateur d'économie d'impôt (Pilier 3a)")
 
-# --- Champs utilisateur ---
 npa = st.text_input("Votre NPA (ex : 8001)", value="")
 income = st.number_input("Revenu imposable annuel (CHF)", min_value=0.0, value=80000.0, step=1000.0)
 pillar3a = st.number_input("Montant cotisé au pilier 3a (CHF)", min_value=0.0, value=6800.0, step=100.0)
@@ -12,7 +11,6 @@ statut = st.selectbox("Statut civil", ["Célibataire", "Marié"])
 nb_enfants = st.number_input("Nombre d'enfants à charge", min_value=0, value=0, step=1)
 religion = st.selectbox("Religion (taxe d'église)", ["Réformée", "Catholique-romaine", "Catholique-chrétienne"])
 
-# --- Calcul et affichage ---
 if st.button("Calculer"):
     try:
         result = calculate_taxes(
