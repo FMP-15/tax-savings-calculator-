@@ -6,6 +6,10 @@ def load_json(path: str) -> dict:
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+def normalize_string(s: str) -> str:
+    cleaned = ''.join(ch for ch in s if unicodedata.category(ch)[0] != 'C')
+    return cleaned.strip()
+
 # Paths
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
@@ -13,14 +17,6 @@ CONFED_PATH = os.path.join(DATA_DIR, 'confederation.json')
 CANTONS_PATH = os.path.join(DATA_DIR, 'cantons.json')
 COMMUNES_PATH = os.path.join(DATA_DIR, 'communes.json')
 DEDUCTIONS_PATH = os.path.join(DATA_DIR, 'deductions.json')
-
-
-def normalize_string(s: str) -> str:
-    """Normalize string by stripping whitespace and control characters."""
-    # Remove null and other control chars
-    cleaned = ''.join(ch for ch in s if unicodedata.category(ch)[0] != 'C')
-    return cleaned.strip()
-
 
 def progressive_tax(income: float, brackets: list) -> float:
     tax = 0.0
@@ -33,7 +29,6 @@ def progressive_tax(income: float, brackets: list) -> float:
         if income <= upper:
             break
     return tax
-
 
 def calculate_taxes(income: float,
                     pillar3a: float,
@@ -59,49 +54,41 @@ def calculate_taxes(income: float,
                       'commune': normalize_string(commune_key)}
             break
     if not region:
-        raise KeyError(f"NPA invalide : {npa_clean}")
+        raise KeyError(f"NPA invalide : {npa_clean}")
     canton_code = region['canton']
     commune_name = region['commune']
 
     # Determine profile key
-    if statut == 'Célibataire':
-        key = 'Personne vivant seule, sans enfant' if nb_enfants == 0 else 'Personne vivant seule, avec enfant'
-    else:
-        key = 'Personne mariée, sans enfant' if nb_enfants == 0 else 'Personne mariée / vivant seule, avec enfant'
+    key = ('Personne vivant seule, sans enfant' if statut == 'Célibataire' and nb_enfants == 0
+           else 'Personne vivant seule, avec enfant' if statut == 'Célibataire'
+           else 'Personne mariée, sans enfant' if statut == 'Marié' and nb_enfants == 0
+           else 'Personne mariée / vivant seule, avec enfant')
 
     # Child deduction
     child_deduction = deductions.get('child', 0) * nb_enfants
 
-    # --- Federal tax ---
+    # Federal
     fed = fed_profiles.get(key)
     if not fed:
-        raise KeyError(f"Profil fédéral introuvable : {key}")
+        raise KeyError(f"Profil fédéral introuvable : {key}")
     net_fed = max(0, income - fed.get('basic_deduction', 0) - child_deduction)
     tax_fed = progressive_tax(net_fed, fed.get('brackets', []))
 
-    # --- Canton tax ---
+    # Canton
     canton = cantons_data.get(canton_code)
     if not canton:
-        raise KeyError(f"JSON canton invalide : {canton_code}")
+        raise KeyError(f"JSON canton invalide : {canton_code}")
     subjects = canton.get('subjects', {})
     can_profile = subjects.get(key) or next(iter(subjects.values()), None)
     if not can_profile:
-        raise KeyError(f"Profil cantonal introuvable : {key} pour le canton {canton_code}")
+        raise KeyError(f"Profil cantonal introuvable : {key} pour le canton {canton_code}")
     basic_ded_cant = canton.get('basic_deduction', 0)
     net_cant = max(0, income - basic_ded_cant - child_deduction)
     tax_cant_base = progressive_tax(net_cant, can_profile.get('brackets', []))
 
-    # --- Communal tax and church ---
+    # Communal
     communities = canton.get('communities', {})
-    # Direct match
     community = communities.get(commune_name)
-    # Normalized match
-    if not community:
-        for k, v in communities.items():
-            if normalize_string(k) == commune_name:
-                community = v
-                break
-    # Substring match
     if not community:
         for k, v in communities.items():
             if commune_name.lower() in normalize_string(k).lower():
@@ -117,7 +104,7 @@ def calculate_taxes(income: float,
 
     total_without = tax_fed + tax_comm + tax_church
 
-    # --- With pillar3a ---
+    # With pillar3a
     adj_income = max(0, income - pillar3a)
     net_fed2 = max(0, adj_income - fed.get('basic_deduction', 0) - child_deduction)
     tax_fed2 = progressive_tax(net_fed2, fed.get('brackets', []))
@@ -127,12 +114,19 @@ def calculate_taxes(income: float,
     tax_church2 = tax_cant2 * church_rate
     total_with = tax_fed2 + tax_comm2 + tax_church2
 
+    # Return detailed breakdown
     return {
         'tax_without_3a': total_without,
         'tax_with_3a': total_with,
-        'savings': total_without - total_with
-    }
-        'tax_without_3a': total_without,
-        'tax_with_3a': total_with,
-        'savings': total_without - total_with
+        'savings': total_without - total_with,
+        'debug': {
+            'canton_code': canton_code,
+            'commune_name': commune_name,
+            'net_fed': net_fed,
+            'tax_fed': tax_fed,
+            'net_cant': net_cant,
+            'tax_cant_base': tax_cant_base,
+            'multiplier': mult,
+            'church_rate': church_rate
+        }
     }
