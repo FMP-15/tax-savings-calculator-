@@ -93,15 +93,23 @@ def calculate_taxes(income: float,
 
     # --- Communal tax and church ---
     communities = canton.get('communities', {})
+    # Direct match
     community = communities.get(commune_name)
+    # Normalized match
     if not community:
-        # Fallback normalize keys
         for k, v in communities.items():
             if normalize_string(k) == commune_name:
                 community = v
                 break
+    # Substring match
     if not community:
-        raise KeyError(f"Commune introuvable : {commune_name}")
+        for k, v in communities.items():
+            if commune_name.lower() in normalize_string(k).lower():
+                community = v
+                break
+    if not community:
+        available = ", ".join(communities.keys())
+        raise KeyError(f"Commune introuvable : {commune_name}. Clés disponibles : {available}")
     mult = community.get('multiplier', 1)
     tax_comm = tax_cant_base * mult
     church_rate = community.get('church_tax', {}).get(religion, 0)
@@ -120,6 +128,10 @@ def calculate_taxes(income: float,
     total_with = tax_fed2 + tax_comm2 + tax_church2
 
     return {
+        'tax_without_3a': total_without,
+        'tax_with_3a': total_with,
+        'savings': total_without - total_with
+    }
         'tax_without_3a': total_without,
         'tax_with_3a': total_with,
         'savings': total_without - total_with
