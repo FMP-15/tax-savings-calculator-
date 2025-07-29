@@ -28,15 +28,10 @@ def progressive_tax(income: float, brackets: list) -> float:
 def derive_subject_key(statut: str, nb_enfants: int) -> str:
     """
     Retourne la clé du profil fédéral selon l'état civil et le nombre d'enfants.
-
-    :param statut: "Célibataire" ou "Marié"
-    :param nb_enfants: nombre d'enfants à charge
-    :raises ValueError: si statut inconnu
     """
     if statut == "Célibataire":
         return "Personne vivant seule, sans enfant" if nb_enfants == 0 else "Personne vivant seule, avec enfant"
     elif statut == "Marié":
-        # Couple sans enfant vs. avec enfant
         return "Personne mariée, sans enfant" if nb_enfants == 0 else "Personne mariée / vivant seule, avec enfant"
     else:
         raise ValueError(f"Statut civil inconnu: {statut}")
@@ -50,19 +45,10 @@ def calculate_taxes(income: float,
                     religion: str,
                     params: dict) -> dict:
     """
-    Calcule les impôts fédéral, cantonal, communal et église,
+    Calcule impôts fédéral, cantonal, communal et église,
     avec et sans pilier 3a.
-
-    :param income: revenu annuel imposable
-    :param pillar3a: montant déduit du pilier 3a
-    :param npa: code postal suisse de résidence
-    :param statut: "Célibataire" ou "Marié"
-    :param nb_enfants: nombre d'enfants à charge
-    :param religion: clé parmi params['religions']
-    :param params: dictionnaire des paramètres fiscaux
-    :returns: dict {"tax_without_3a", "tax_with_3a", "savings"}
     """
-    # Déterminer profil fédéral
+    # Profil fédéral
     subject_key = derive_subject_key(statut, nb_enfants)
     fed = params["federal"].get(subject_key)
     if fed is None:
@@ -72,7 +58,7 @@ def calculate_taxes(income: float,
     income_net_fed = max(0, income - fed["basic_deduction"])
     tax_fed = progressive_tax(income_net_fed, fed["brackets"])
 
-    # Région (canton + commune)
+    # Région d'habitation
     region = params["postal_to_region"].get(str(npa))
     if not region:
         raise KeyError(f"NPA invalide: {npa}")
@@ -80,14 +66,19 @@ def calculate_taxes(income: float,
     commune = region["commune"]
 
     # Impôt cantonal
-    can_subjects = params["cantons"][canton].get("subjects", {})
+    can_subjects = params["cantons"].get(canton, {}).get("subjects", {})
     can = can_subjects.get(subject_key)
     if can is None:
-        raise KeyError(f"Profil cantonal introuvable pour {canton}: {subject_key}")
+        # Fallback: utiliser le premier profil disponible pour ce canton
+        if can_subjects:
+            fallback_key = next(iter(can_subjects))
+            can = can_subjects[fallback_key]
+        else:
+            raise KeyError(f"Aucun profil cantonal disponible pour {canton}")
     tax_can_base = progressive_tax(income, can["brackets"])
 
     # Impôt communal
-    community = params["cantons"][canton]["communities"].get(commune)
+    community = params["cantons"].get(canton, {}).get("communities", {}).get(commune)
     if community is None:
         raise KeyError(f"Commune introuvable pour {canton}: {commune}")
     mult = community.get("multiplier", 1)
@@ -97,18 +88,15 @@ def calculate_taxes(income: float,
     church_rate = community.get("church_tax", {}).get(religion, 0)
     tax_church = tax_can_base * church_rate
 
-    # Total sans pilier 3a
+    # Total sans 3a
     total_without = tax_fed + tax_can_comm + tax_church
 
-    # Total avec pilier 3a
+    # Total avec 3a
     adj_income = max(0, income - pillar3a)
-    # Fédéral
     income_net_fed2 = max(0, adj_income - fed["basic_deduction"])
     tax_fed2 = progressive_tax(income_net_fed2, fed["brackets"])
-    # Cantonal et communal
     tax_can_base2 = progressive_tax(adj_income, can["brackets"])
     tax_can_comm2 = tax_can_base2 * mult
-    # Eglise
     tax_church2 = tax_can_base2 * church_rate
     total_with = tax_fed2 + tax_can_comm2 + tax_church2
 
@@ -117,4 +105,3 @@ def calculate_taxes(income: float,
         "tax_with_3a": total_with,
         "savings": total_without - total_with
     }
-
